@@ -1,0 +1,17 @@
+syntax = "proto3";
+package bot;
+
+option go_package = "gitlab.education.tbank.ru/backend-academy-go-2025/homeworks/link-tracker/pkg/proto/bot";
+
+service BotService {
+  rpc SendUpdate(SendUpdateRequest) returns (SendUpdateResponse);
+}
+
+message SendUpdateRequest {
+  int64 id = 1;
+  string url = 2;
+  string description = 3;
+  repeated int64 tg_chat_ids = 4;
+}
+
+message SendUpdateResponse {}

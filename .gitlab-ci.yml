@@ -1,0 +1,74 @@
+---
+variables:
+  GO_VERSION: "1.26.1"
+  GO_LINTER_VERSION: "v2.10"
+  GOPATH: "$CI_PROJECT_DIR/.go"
+
+cache:
+  paths:
+    - .go/pkg/mod/
+  policy: pull
+  key:
+    files:
+      - go.sum
+
+stages:
+  - lint
+  - test
+  - build
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:${GO_LINTER_VERSION}-alpine
+  script:
+    - golangci-lint run -c .golangci.yml --timeout=5m
+  rules:
+    - when: always
+
+test:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  script:
+    - apk add --no-cache gcc musl-dev
+    - go test -race -timeout=5m -coverprofile=coverage.out ./...
+    - go tool cover -func=coverage.out
+  coverage: '/total:\s+\(statements\)\s+(\d+.\d+)%/'
+  rules:
+    - when: always
+
+integration_test:
+  image: golang:${GO_VERSION}-alpine
+  stage: test
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  tags:
+    - dind
+  services:
+    - name: docker:dind
+      alias: docker
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - go test -tags=integration -count=1 -timeout=10m ./test/integration/...
+
+build:
+  stage: build
+  image: golang:${GO_VERSION}-alpine
+  cache:
+    paths:
+      - .go/pkg/mod/
+    policy: pull-push
+    key:
+      files:
+        - go.sum
+  timeout: 20 minutes
+  script:
+    - apk add --no-cache make
+    - make build
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: "$CI_COMMIT_BRANCH =~ /^(master|main)$/"
+    - when: never

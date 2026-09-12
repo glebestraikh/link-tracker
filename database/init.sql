@@ -1,0 +1,3 @@
+CREATE DATABASE bot;
+CREATE DATABASE scrapper;
+       
